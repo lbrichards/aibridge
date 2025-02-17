@@ -1,4 +1,5 @@
-from fastapi import FastAPI, WebSocket, Query
+from fastapi import FastAPI, WebSocket, Query, Request
+from fastapi.routing import APIRoute
 from fastapi.responses import HTMLResponse
 import uvicorn
 
@@ -207,17 +208,33 @@ async def websocket_endpoint(websocket: WebSocket):
     except:
         connected_clients.remove(websocket)
 
-@app.get("/command")
-async def get_command():
+@app.get("/command", response_class=HTMLResponse)
+async def get_command(request: Request):
     # Return HTML with the current command in <div id="command">
     html_content = f"""
+    <!DOCTYPE html>
     <html>
-      <body>
-        <div id="command">{current_command}</div>
-      </body>
+        <head>
+            <title>Current Command</title>
+            <style>
+                #command {{ 
+                    width: 100%; 
+                    padding: 10px; 
+                    margin: 10px 0; 
+                    font-family: monospace; 
+                    background: #f0f0f0; 
+                    border: 1px solid #ccc;
+                    white-space: pre-wrap;
+                    min-height: 50px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div id="command">{current_command}</div>
+        </body>
     </html>
     """
-    return HTMLResponse(content=html_content, status_code=200)
+    return HTMLResponse(content=html_content)
 
 @app.post("/command")
 async def set_command(command: str = Query(...)):
