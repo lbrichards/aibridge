@@ -5,6 +5,9 @@ import uvicorn
 
 app = FastAPI()
 
+# Include the router
+app.include_router(router)
+
 current_command = ""
 connected_clients = []
 
@@ -208,7 +211,10 @@ async def websocket_endpoint(websocket: WebSocket):
     except:
         connected_clients.remove(websocket)
 
-@app.get("/command", response_class=HTMLResponse)
+from fastapi.routing import APIRouter
+router = APIRouter()
+
+@router.get("/command", response_class=HTMLResponse, methods=["GET"])
 async def get_command(request: Request):
     # Return HTML with the current command in <div id="command">
     html_content = f"""
