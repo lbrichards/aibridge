@@ -207,6 +207,18 @@ async def websocket_endpoint(websocket: WebSocket):
     except:
         connected_clients.remove(websocket)
 
+@app.get("/command")
+async def get_command():
+    # Return HTML with the current command in <div id="command">
+    html_content = f"""
+    <html>
+      <body>
+        <div id="command">{current_command}</div>
+      </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content, status_code=200)
+
 @app.post("/command")
 async def set_command(command: str = Query(...)):
     global current_command
