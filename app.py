@@ -217,52 +217,56 @@ async def websocket_endpoint(websocket: WebSocket):
     except:
         connected_clients.remove(websocket)
 
-@app.get("/command")
-async def get_command():
-    # Return HTML with the current command in <div id="command">
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>Current Command</title>
-            <style>
-                #command {{ 
-                    width: 100%; 
-                    padding: 10px; 
-                    margin: 10px 0; 
-                    font-family: monospace; 
-                    background: #f0f0f0; 
-                    border: 1px solid #ccc;
-                    white-space: pre-wrap;
-                    min-height: 50px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div id="command">{current_command}</div>
-        </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
-
-@app.post("/command")
-async def set_command(command: str = Query(...)):
+@app.api_route("/command", methods=["GET", "POST"])
+async def handle_command(request: Request, command: str = Query(None)):
     global current_command
-    current_command = command
-    # Broadcast to all connected clients
-    disconnected_clients = []
-    for client in connected_clients:
-        try:
-            await client.send_text(command)
-        except:
-            disconnected_clients.append(client)
     
-    # Clean up disconnected clients
-    for client in disconnected_clients:
-        if client in connected_clients:
-            connected_clients.remove(client)
-    
-    return {"status": "success"}
+    if request.method == "GET":
+        # Return HTML with the current command in <div id="command">
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <title>Current Command</title>
+                <style>
+                    #command {{ 
+                        width: 100%; 
+                        padding: 10px; 
+                        margin: 10px 0; 
+                        font-family: monospace; 
+                        background: #f0f0f0; 
+                        border: 1px solid #ccc;
+                        white-space: pre-wrap;
+                        min-height: 50px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div id="command">{current_command}</div>
+            </body>
+        </html>
+        """
+        return HTMLResponse(content=html_content)
+    else:  # POST
+        if not command:
+            return {"status": "error", "message": "Command parameter is required"}
+        
+        current_command = command
+        
+        # Broadcast to all connected clients
+        disconnected_clients = []
+        for client in connected_clients:
+            try:
+                await client.send_text(command)
+            except:
+                disconnected_clients.append(client)
+        
+        # Clean up disconnected clients
+        for client in disconnected_clients:
+            if client in connected_clients:
+                connected_clients.remove(client)
+        
+        return {"status": "success"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=51753)
