@@ -1,0 +1,7 @@
+version: '3.8'
+services:
+  command-share:
+    build: .
+    ports:
+      - "51753:51753"
+    restart: unless-stopped
