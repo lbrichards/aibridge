@@ -1,12 +1,18 @@
 from fastapi import FastAPI, WebSocket, Query, Request
-from fastapi.routing import APIRoute
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 import uvicorn
 
 app = FastAPI()
 
-# Include the router
-app.include_router(router)
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 current_command = ""
 connected_clients = []
@@ -211,11 +217,8 @@ async def websocket_endpoint(websocket: WebSocket):
     except:
         connected_clients.remove(websocket)
 
-from fastapi.routing import APIRouter
-router = APIRouter()
-
-@router.get("/command", response_class=HTMLResponse, methods=["GET"])
-async def get_command(request: Request):
+@app.get("/command")
+async def get_command():
     # Return HTML with the current command in <div id="command">
     html_content = f"""
     <!DOCTYPE html>
