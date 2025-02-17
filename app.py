@@ -95,6 +95,7 @@ async def websocket_endpoint(websocket: WebSocket):
         connected_clients.remove(websocket)
 
 @app.post("/command")
+def set_command(command: str = Query(...)):
 async def set_command(command: str):
     global current_command
     current_command = command
