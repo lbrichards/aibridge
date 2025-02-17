@@ -23,17 +23,45 @@ HTML = """
                 border: 1px solid #ccc;
                 white-space: pre-wrap;
                 min-height: 50px;
+                cursor: text;
+                user-select: all;  /* Makes the text pre-selected */
             }
-            #copyBtn {
+            .command-container {
+                position: relative;
+                margin: 20px 0;
+            }
+            .copy-hint {
+                position: absolute;
+                top: -20px;
+                left: 0;
+                color: #666;
+                font-size: 12px;
+                display: none;
+            }
+            #command:hover + .copy-hint {
+                display: block;
+            }
+            .buttons {
+                display: flex;
+                gap: 10px;
+                margin: 10px 0;
+            }
+            button {
                 padding: 10px 20px;
                 background: #4CAF50;
                 color: white;
                 border: none;
                 cursor: pointer;
                 font-size: 16px;
+                border-radius: 4px;
             }
-            #copyBtn:hover { background: #45a049; }
-            #copyBtn:active { background: #3d8b40; }
+            button:hover { background: #45a049; }
+            button.secondary {
+                background: #2196F3;
+            }
+            button.secondary:hover {
+                background: #1976D2;
+            }
             #status {
                 margin-top: 10px;
                 padding: 10px;
@@ -47,6 +75,7 @@ HTML = """
                 color: white; 
                 padding: 20px;
                 margin-bottom: 20px;
+                border-radius: 4px;
             }
             .connection-status {
                 position: fixed;
@@ -58,16 +87,35 @@ HTML = """
             }
             .connected { background: #dff0d8; color: #3c763d; }
             .disconnected { background: #f2dede; color: #a94442; }
+            kbd {
+                background-color: #f7f7f7;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+                color: #333;
+                display: inline-block;
+                font-size: .85em;
+                font-family: Monaco, monospace;
+                line-height: 1;
+                padding: 2px 4px;
+                white-space: nowrap;
+            }
         </style>
     </head>
     <body>
         <div id="connectionStatus" class="connection-status disconnected">Disconnected</div>
         <div class="header">
             <h1>AI Bridge</h1>
-            <p>Commands from the AI assistant will appear here for you to copy and execute.</p>
+            <p>Commands from the AI assistant will appear below. Click the command to select it, then press <kbd>⌘C</kbd> or <kbd>Ctrl+C</kbd> to copy.</p>
         </div>
-        <div id="command"></div>
-        <button id="copyBtn" onclick="copyCommand()">Copy to Clipboard</button>
+        <div class="command-container">
+            <div id="command" onclick="this.focus()"></div>
+            <div class="copy-hint">Click to select, then press ⌘C or Ctrl+C to copy</div>
+        </div>
+        <div class="buttons">
+            <button onclick="selectCommand()">Select All</button>
+            <button class="secondary" onclick="clearCommand()">Clear</button>
+        </div>
         <div id="status"></div>
 
         <script>
@@ -91,6 +139,23 @@ HTML = """
                 status.textContent = connected ? 'Connected' : 'Disconnected';
             }
 
+            function selectCommand() {
+                const commandDiv = document.getElementById("command");
+                if (commandDiv.textContent) {
+                    const range = document.createRange();
+                    range.selectNodeContents(commandDiv);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    showStatus("Command selected - press ⌘C or Ctrl+C to copy");
+                }
+            }
+
+            function clearCommand() {
+                document.getElementById("command").textContent = "";
+                showStatus("Command cleared");
+            }
+
             function connectWebSocket() {
                 ws = new WebSocket(`ws://${wsHost}:${wsPort}/ws`);
                 
@@ -112,45 +177,13 @@ HTML = """
                 ws.onmessage = function(event) {
                     document.getElementById("command").textContent = event.data;
                     showStatus("New command received");
+                    selectCommand();  // Automatically select new commands
                 };
 
                 ws.onerror = function(error) {
                     console.error('WebSocket error:', error);
                     showStatus("Connection error", true);
                 };
-            }
-
-            async function copyCommand() {
-                const command = document.getElementById("command").textContent;
-                if (!command) {
-                    showStatus("No command to copy", true);
-                    return;
-                }
-
-                try {
-                    // Try the modern clipboard API first
-                    await navigator.clipboard.writeText(command);
-                    showStatus("Command copied to clipboard!");
-                } catch (err1) {
-                    try {
-                        // Fallback to older execCommand method
-                        const textArea = document.createElement("textarea");
-                        textArea.value = command;
-                        document.body.appendChild(textArea);
-                        textArea.select();
-                        const success = document.execCommand('copy');
-                        textArea.remove();
-                        
-                        if (success) {
-                            showStatus("Command copied to clipboard!");
-                        } else {
-                            throw new Error("execCommand failed");
-                        }
-                    } catch (err2) {
-                        console.error('Clipboard error:', err2);
-                        showStatus("Failed to copy command. Please copy manually.", true);
-                    }
-                }
             }
 
             // Initial connection
@@ -192,15 +225,6 @@ async def set_command(command: str = Query(...)):
             connected_clients.remove(client)
     
     return {"status": "success"}
-
-@app.get("/status")
-async def get_status():
-    return {
-        "active_connections": len(connected_clients),
-        "current_command": current_command,
-        "uptime": "implement_me",
-        "version": "0.1.0"
-    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=51753)
