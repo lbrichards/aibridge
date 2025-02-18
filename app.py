@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 import uvicorn
 import redis
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -12,7 +13,8 @@ app = FastAPI()
 
 # Initialize Redis client
 try:
-    redis_client = redis.Redis(host='localhost', port=6379, db=0)
+    redis_host = os.getenv('REDIS_HOST', 'localhost')
+    redis_client = redis.Redis(host=redis_host, port=6379, db=0)
     redis_client.ping()  # Test connection
     logger.info("Connected to Redis successfully")
 except redis.ConnectionError:

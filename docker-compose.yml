@@ -5,3 +5,20 @@ services:
     ports:
       - "51753:51753"
     restart: unless-stopped
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    networks:
+      - aibridge-net
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - aibridge-net
+
+networks:
+  aibridge-net:
+    driver: bridge
