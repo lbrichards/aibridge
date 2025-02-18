@@ -13,11 +13,41 @@
 \maketitle
 
 \section{Overview}
-AI Bridge is a system that enables AI assistants to execute commands on a local machine and see their output in real-time. It consists of three main components:
+AI Bridge is a system designed to solve a fundamental challenge in AI-human interaction: enabling AI assistants to directly interact with a user's local machine while maintaining security and control. The system addresses several key problems in AI-human collaboration:
+
+\subsection{Problems Solved}
 \begin{itemize}
-    \item AI Bridge - A web service that receives commands
-    \item Redis - A message broker for command distribution
-    \item Relay - A CLI tool that executes commands and displays output
+    \item \textbf{Copy-Paste Overhead}: Traditional interaction requires users to manually copy-paste commands and outputs between their terminal and the AI interface, creating friction and potential for errors.
+    
+    \item \textbf{Command Output Visibility}: AI assistants typically can't see the output of commands executed on the user's machine, making it difficult to provide context-aware assistance or troubleshoot issues.
+    
+    \item \textbf{Security Concerns}: Direct SSH access for AI assistants raises security concerns, necessitating a controlled interface for command execution.
+    
+    \item \textbf{Context Maintenance}: The need to constantly switch between contexts (AI chat, terminal, documentation) reduces productivity and increases the chance of mistakes.
+\end{itemize}
+
+\subsection{Solution Architecture}
+The system consists of three main components working together to provide a seamless interface:
+
+\begin{itemize}
+    \item \textbf{AI Bridge} - A web service that acts as a secure gateway for command execution requests. It provides a controlled HTTP API that the AI assistant can use to send commands, respecting security boundaries while enabling automation.
+    
+    \item \textbf{Redis} - A message broker that handles reliable command distribution. It decouples the command submission from execution, providing a robust and scalable communication channel between components.
+    
+    \item \textbf{Relay} - A CLI tool that executes commands and displays output. It provides real-time feedback to both the user and the AI assistant, creating a shared context for collaboration.
+\end{itemize}
+
+\subsection{Benefits}
+This architecture provides several key advantages:
+
+\begin{itemize}
+    \item \textbf{Reduced Friction}: Commands can be executed with minimal user intervention, streamlining the interaction between AI and user.
+    
+    \item \textbf{Shared Context}: Both AI and user can see command outputs in real-time, enabling more effective collaboration and troubleshooting.
+    
+    \item \textbf{Controlled Access}: The system provides a secure way for AI to interact with the local machine without requiring direct system access.
+    
+    \item \textbf{Audit Trail}: All commands and their outputs are visible and can be logged, providing transparency and accountability.
 \end{itemize}
 
 \section{Installation}
@@ -71,14 +101,116 @@ relay start
 
 \section{Architecture}
 
+\subsection{System Design Philosophy}
+The architecture of AI Bridge is built around several key principles:
+
+\begin{itemize}
+    \item \textbf{Separation of Concerns}: Each component has a specific, well-defined role:
+    \begin{itemize}
+        \item AI Bridge handles command reception and validation
+        \item Redis manages message distribution and queuing
+        \item Relay focuses on command execution and output display
+    \end{itemize}
+    
+    \item \textbf{Security by Design}: The system uses:
+    \begin{itemize}
+        \item HTTP endpoints for controlled access
+        \item Redis for message isolation
+        \item Local execution for command control
+    \end{itemize}
+    
+    \item \textbf{Real-time Feedback}: The system provides:
+    \begin{itemize}
+        \item Immediate command echo
+        \item Live output streaming
+        \item Status updates and error messages
+    \end{itemize}
+\end{itemize}
+
+\subsection{Information Flow}
+The system manages several types of information:
+
+\begin{itemize}
+    \item \textbf{Commands}: Sent from AI to user's machine
+    \begin{itemize}
+        \item Transmitted as HTTP requests to AI Bridge
+        \item Queued in Redis for reliability
+        \item Executed by Relay in user's environment
+    \end{itemize}
+    
+    \item \textbf{Output}: Command results and system messages
+    \begin{itemize}
+        \item Captured by Relay in real-time
+        \item Displayed in user's terminal
+        \item Visible to AI through tmate session
+    \end{itemize}
+    
+    \item \textbf{State}: System status and session information
+    \begin{itemize}
+        \item Managed by Redis for component coordination
+        \item Monitored by Relay for system health
+        \item Accessible to AI for context awareness
+    \end{itemize}
+\end{itemize}
+
 \subsection{Command Flow}
+The typical flow of a command through the system:
+
 \begin{enumerate}
-    \item AI Assistant sends command to AI Bridge endpoint
-    \item AI Bridge publishes command to Redis
-    \item Relay receives command from Redis
-    \item Relay executes command and displays output
-    \item AI Assistant sees output through tmate session
+    \item \textbf{Initiation}: AI Assistant sends command to AI Bridge endpoint
+    \begin{itemize}
+        \item Uses HTTP POST request
+        \item Includes command text and parameters
+        \item Receives immediate acknowledgment
+    \end{itemize}
+    
+    \item \textbf{Distribution}: AI Bridge publishes command to Redis
+    \begin{itemize}
+        \item Validates command format
+        \item Adds to message queue
+        \item Ensures reliable delivery
+    \end{itemize}
+    
+    \item \textbf{Execution}: Relay receives and processes command
+    \begin{itemize}
+        \item Subscribes to Redis channel
+        \item Executes in local shell
+        \item Captures all output streams
+    \end{itemize}
+    
+    \item \textbf{Feedback}: Output displayed and captured
+    \begin{itemize}
+        \item Shows in user's terminal
+        \item Visible in tmate session
+        \item Available for AI analysis
+    \end{itemize}
 \end{enumerate}
+
+\subsection{Error Handling}
+The system includes comprehensive error management:
+
+\begin{itemize}
+    \item \textbf{Connection Issues}
+    \begin{itemize}
+        \item Redis connection monitoring
+        \item Automatic reconnection attempts
+        \item Clear error messages
+    \end{itemize}
+    
+    \item \textbf{Command Failures}
+    \begin{itemize}
+        \item Execution error capture
+        \item Status code reporting
+        \item Detailed error messages
+    \end{itemize}
+    
+    \item \textbf{System Recovery}
+    \begin{itemize}
+        \item Component restart capabilities
+        \item State recovery procedures
+        \item User notification system
+    \end{itemize}
+\end{itemize}
 
 \section{Configuration}
 
