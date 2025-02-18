@@ -1,1 +1,160 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{minted}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{enumitem}
 
+\title{AI Bridge User Manual}
+\author{OpenHands}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Overview}
+AI Bridge is a system that enables AI assistants to execute commands on a local machine and see their output in real-time. It consists of three main components:
+\begin{itemize}
+    \item AI Bridge - A web service that receives commands
+    \item Redis - A message broker for command distribution
+    \item Relay - A CLI tool that executes commands and displays output
+\end{itemize}
+
+\section{Installation}
+
+\subsection{Prerequisites}
+\begin{itemize}
+    \item Docker and Docker Compose
+    \item Python 3.7+
+    \item Redis server
+    \item pipx (recommended for tool installation)
+\end{itemize}
+
+\subsection{Installing Components}
+
+\subsubsection{AI Bridge}
+Clone and build the Docker container:
+\begin{minted}{bash}
+git clone https://github.com/username/aibridge.git
+cd aibridge
+docker-compose up --build
+\end{minted}
+
+\subsubsection{Relay Tool}
+Install using pipx:
+\begin{minted}{bash}
+cd relay
+pipx install -e .
+\end{minted}
+
+\section{Usage}
+
+\subsection{Starting the System}
+
+\subsubsection{Start Redis}
+On macOS:
+\begin{minted}{bash}
+brew services start redis
+\end{minted}
+
+\subsubsection{Start AI Bridge}
+From the aibridge directory:
+\begin{minted}{bash}
+docker-compose up
+\end{minted}
+
+\subsubsection{Start Relay}
+From any terminal:
+\begin{minted}{bash}
+relay start
+\end{minted}
+
+\section{Architecture}
+
+\subsection{Command Flow}
+\begin{enumerate}
+    \item AI Assistant sends command to AI Bridge endpoint
+    \item AI Bridge publishes command to Redis
+    \item Relay receives command from Redis
+    \item Relay executes command and displays output
+    \item AI Assistant sees output through tmate session
+\end{enumerate}
+
+\section{Configuration}
+
+\subsection{AI Bridge}
+Configuration in docker-compose.yml:
+\begin{minted}{yaml}
+version: '3.8'
+services:
+  command-share:
+    build: .
+    ports:
+      - "51753:51753"
+    environment:
+      - REDIS_HOST=host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+\end{minted}
+
+\subsection{Relay}
+Configuration in pyproject.toml:
+\begin{minted}{toml}
+[project]
+name = "relay-cli"
+version = "0.1.0"
+dependencies = [
+    "redis",
+    "typer",
+    "colorama"
+]
+\end{minted}
+
+\section{Troubleshooting}
+
+\subsection{Common Issues}
+\begin{itemize}
+    \item \textbf{Relay not responding}: Restart relay with \mintinline{bash}{relay start}
+    \item \textbf{Redis connection error}: Ensure Redis is running with \mintinline{bash}{brew services start redis}
+    \item \textbf{Complex commands failing}: Break complex commands into simpler steps
+\end{itemize}
+
+\subsection{Debugging}
+\begin{itemize}
+    \item Check Redis connection: \mintinline{bash}{redis-cli ping}
+    \item Verify AI Bridge is running: \mintinline{bash}{docker ps}
+    \item Check relay status: Look for output in relay terminal
+\end{itemize}
+
+\section{Best Practices}
+
+\subsection{Command Execution}
+\begin{itemize}
+    \item Use simple, atomic commands when possible
+    \item Avoid complex pipes and redirections
+    \item Check command output before proceeding
+\end{itemize}
+
+\subsection{System Management}
+\begin{itemize}
+    \item Restart components in order: Redis → AI Bridge → Relay
+    \item Monitor token usage for cost efficiency
+    \item Keep commands focused and specific
+\end{itemize}
+
+\section{Limitations}
+\begin{itemize}
+    \item Complex shell operations may require breaking into steps
+    \item Token usage increases with command complexity
+    \item System requires manual restart if components get out of sync
+\end{itemize}
+
+\section{Future Improvements}
+\begin{itemize}
+    \item Better handling of complex shell commands
+    \item Automatic recovery from errors
+    \item More efficient token usage
+    \item Improved command batching
+\end{itemize}
+
+\end{document}
