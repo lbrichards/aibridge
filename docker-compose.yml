@@ -7,5 +7,7 @@ services:
     restart: unless-stopped
     environment:
       - REDIS_HOST=host.docker.internal
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     extra_hosts:
       - "host.docker.internal:host-gateway"

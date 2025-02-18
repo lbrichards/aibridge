@@ -4,6 +4,9 @@ import uvicorn
 import redis
 import logging
 import os
+import json
+from ast import literal_eval
+from typing import Optional, Dict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -12,14 +15,40 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 # Initialize Redis client
+redis_host = os.getenv('REDIS_HOST', 'localhost')
+redis_port = int(os.getenv('REDIS_PORT', '6379'))
+redis_db = int(os.getenv('REDIS_DB', '0'))
+
 try:
-    redis_host = os.getenv('REDIS_HOST', 'localhost')
-    redis_client = redis.Redis(host=redis_host, port=6379, db=0)
-    redis_client.ping()  # Test connection
-    logger.info("Connected to Redis successfully")
+    redis_client = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        db=redis_db,
+        decode_responses=True  # Auto-decode Redis responses to strings
+    )
+    redis_client.ping()
+    logger.info(f"Connected to Redis at {redis_host}:{redis_port}")
 except redis.ConnectionError:
     logger.warning("Could not connect to Redis - messages will only appear in web interface")
     redis_client = None
+
+def get_tmate_urls() -> Optional[Dict[str, str]]:
+    """Get the current tmate session URLs from Redis."""
+    if not redis_client:
+        return None
+    
+    try:
+        urls_str = redis_client.get('tmate_urls')
+        if not urls_str:
+            return None
+        
+        # Convert string representation of dict to actual dict
+        urls = literal_eval(urls_str)
+        logger.info(f"Found tmate URLs: web={urls.get('web')}, ssh={urls.get('ssh')}")
+        return urls
+    except Exception as e:
+        logger.error(f"Error getting tmate URLs: {str(e)}")
+        return None
 
 current_command = ""
 connected_clients = []
@@ -117,6 +146,26 @@ HTML = """
                 padding: 2px 4px;
                 white-space: nowrap;
             }
+            .tmate-urls {
+                margin-top: 20px;
+                padding: 10px;
+                background: #f8f9fa;
+                border-radius: 4px;
+                border-left: 4px solid #2196F3;
+            }
+            .tmate-urls h3 {
+                margin-top: 0;
+                color: #2c3e50;
+            }
+            .tmate-urls code {
+                display: block;
+                margin: 5px 0;
+                padding: 5px;
+                background: #fff;
+                border: 1px solid #ddd;
+                border-radius: 3px;
+                font-family: Monaco, monospace;
+            }
         </style>
     </head>
     <body>
@@ -134,6 +183,10 @@ HTML = """
             <button class="secondary" onclick="clearCommand()">Clear</button>
         </div>
         <div id="status"></div>
+        <div id="tmateUrls" class="tmate-urls" style="display: none;">
+            <h3>Terminal Session URLs</h3>
+            <div id="tmateUrlsContent"></div>
+        </div>
 
         <script>
             const wsHost = window.location.hostname;
@@ -173,6 +226,25 @@ HTML = """
                 showStatus("Command cleared");
             }
 
+            function updateTmateUrls() {
+                fetch('/tmate-urls')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && (data.web || data.ssh)) {
+                            const content = document.getElementById('tmateUrlsContent');
+                            content.innerHTML = `
+                                <p><strong>Web URL (preferred):</strong><br>
+                                <code>${data.web || 'Not available'}</code></p>
+                                <p><strong>SSH URL (alternate):</strong><br>
+                                <code>${data.ssh || 'Not available'}</code></p>
+                                <p><em>Last updated: ${new Date(data.timestamp).toLocaleString()}</em></p>
+                            `;
+                            document.getElementById('tmateUrls').style.display = 'block';
+                        }
+                    })
+                    .catch(error => console.error('Error fetching tmate URLs:', error));
+            }
+
             function connectWebSocket() {
                 ws = new WebSocket(`ws://${wsHost}:${wsPort}/ws`);
                 
@@ -180,6 +252,7 @@ HTML = """
                     console.log('Connected to AI Bridge');
                     updateConnectionStatus(true);
                     reconnectAttempts = 0;
+                    updateTmateUrls();  // Get initial URLs
                 };
 
                 ws.onclose = function() {
@@ -205,6 +278,9 @@ HTML = """
 
             // Initial connection
             connectWebSocket();
+
+            // Periodically update tmate URLs
+            setInterval(updateTmateUrls, 10000);
         </script>
     </body>
 </html>
@@ -213,6 +289,14 @@ HTML = """
 @app.get("/")
 async def get():
     return HTMLResponse(HTML)
+
+@app.get("/tmate-urls")
+async def get_tmate_urls_endpoint():
+    """Return the current tmate session URLs."""
+    urls = get_tmate_urls()
+    if urls:
+        return urls
+    return {"error": "No active tmate session found"}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
