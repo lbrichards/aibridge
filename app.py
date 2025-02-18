@@ -264,6 +264,8 @@ async def set_command(command: str = Query(...)):
             logger.info(f"Published to Redis: {command[:50]}...")
         except Exception as e:
             logger.error(f"Redis publish failed: {str(e)}")
+    else:
+        logger.error("Redis client not initialized - check Redis connection")
     
     # Broadcast to all connected clients
     disconnected_clients = []
