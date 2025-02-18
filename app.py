@@ -1,19 +1,23 @@
-from fastapi import FastAPI, WebSocket, Query, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.routing import APIRouter
+from fastapi import FastAPI, WebSocket, Query
 from fastapi.responses import HTMLResponse
 import uvicorn
+import redis
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Initialize Redis client
+try:
+    redis_client = redis.Redis(host='localhost', port=6379, db=0)
+    redis_client.ping()  # Test connection
+    logger.info("Connected to Redis successfully")
+except redis.ConnectionError:
+    logger.warning("Could not connect to Redis - messages will only appear in web interface")
+    redis_client = None
 
 current_command = ""
 connected_clients = []
@@ -218,8 +222,9 @@ async def websocket_endpoint(websocket: WebSocket):
     except:
         connected_clients.remove(websocket)
 
-@app.get("/command", response_class=HTMLResponse)
+@app.get("/command")
 async def get_command():
+    # Return HTML with the current command in <div id="command">
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -246,9 +251,17 @@ async def get_command():
     return HTMLResponse(content=html_content)
 
 @app.post("/command")
-async def post_command(command: str = Query(...)):
+async def set_command(command: str = Query(...)):
     global current_command
     current_command = command
+    
+    # Publish to Redis if available
+    if redis_client:
+        try:
+            redis_client.publish('llm_suggestions', command)
+            logger.info(f"Published to Redis: {command[:50]}...")
+        except Exception as e:
+            logger.error(f"Redis publish failed: {str(e)}")
     
     # Broadcast to all connected clients
     disconnected_clients = []

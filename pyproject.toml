@@ -1,0 +1,15 @@
+[project]
+name = "aibridge"
+version = "0.1.0"
+description = "Bridge between LLM and local environment"
+authors = [{ name = "OpenHands", email = "openhands@all-hands.dev" }]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.7"
+
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "redis",
+    "websockets"
+]
